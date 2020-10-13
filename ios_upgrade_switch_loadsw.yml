@@ -1,0 +1,310 @@
+---
+- name: UPGRADE IOS SWITCH SOFTWARE
+  hosts: all
+  connection: network_cli
+  gather_facts: no
+
+# version 5: 2019-02-04: using modified ios_facts.py module
+# version 6: 2019-02-04: change information in initial debug list
+# version 7: 2019-05-02: fixed issue with single cat3k switch
+# version 8: 2019-05-07: new step for declaring file variables
+  vars:
+    ansible_network_os: ios
+    switch_model: 'unknown'
+    catalyst_file_system: "flash:"
+    ios_file_exists: false
+    ios_file_valid: false
+    ios_md5_value: "11111111"
+    switch_type: "modern"
+    flash2_free_space:
+    ios_file_flash2_exists: false
+    free_space_flash2_test: false
+    compliant_ios_version: 15.2(2)E8
+    compliant_ios_file:
+    compliant_ios_file_size:
+    compliant_ios_md5_value: 'abcdef1234567890'
+    compliant_ios_file_c2960s: c2960s-universalk9-mz.152-2.E8.bin
+    compliant_ios_file_size_c2960s: "16967680"
+    compliant_ios_md5_value_c2960s: '262e5da4a7440cc37b2e1d0cc2bad7d5'
+    compliant_ios_file_c2960x: c2960x-universalk9-mz.152-2.E8.bin
+    compliant_ios_file_size_c2960x: "21287936"
+    compliant_ios_md5_value_c2960x: a285f7e7293a68d4bd44ea94d1152e50
+    compliant_ios_file_c2960c: c2960c405-universalk9-mz.152-2.E8.bin
+    compliant_ios_file_size_c2960c: "16677888"
+    compliant_ios_md5_value_c2960c: "5c972c1dfdd6a57473dd7acb0a8ad1d1"
+    compliant_ios_file_c3560c: c3560c405-universalk9-mz.152-2.E8.bin
+    compliant_ios_file_size_c3560c: "20004864"
+    compliant_ios_md5_value_c3560c: "e2dd3fe475296a44fc64addc46c18bd1"
+    compliant_ios_file_c3560cg: c3560c405ex-universalk9-mz.152-2.E8.bin
+    compliant_ios_file_size_c3560cg: "20628480"
+    compliant_ios_md5_value_c3560cg: "86ee03dfeb501c088c96d5675b96dcb9"
+    compliant_ios_file_c3560x: c3560e-universalk9-mz.152-2.E8.bin
+    compliant_ios_file_size_c3560x: "24385536"
+    compliant_ios_md5_value_c3560x: "39f17940a583b5a250aafd5e6aeee999"
+    compliant_ios_version_c3560cx: 15.2(6)E2
+    compliant_ios_file_c3560cx: c3560cx-universalk9-mz.152-6.E2.bin
+    compliant_ios_file_size_c3560cx: "22798336"
+    compliant_ios_md5_value_c3560cx: "340064c2c0667350ec6358bea422f133"
+    compliant_ios_file_c3750x: c3750e-universalk9-mz.152-2.E8.bin
+    compliant_ios_file_size_c3750x: "24470528"
+    compliant_ios_md5_value_c3750x: "1d69f0b4f3e2e273afb50d5f213bceb2"
+    compliant_ios_version_cat3k: 16.03.08
+    compliant_ios_file_cat3k: cat3k_caa-universalk9.16.03.08.SPA.bin
+    compliant_ios_file_size_cat3k: "535578976"
+    compliant_ios_md5_value_cat3k: "c98d0b937945f30b3cd8f58702461b6f"
+
+  tasks:
+    - name: GATHER IOS FACTS
+      ios_facts:
+        gather_subset:
+          - "!default"
+          - hardware
+
+    - name: SET MODEL VARIABLE C2960
+      set_fact:
+        switch_type: "legacy"
+      when: '"C2960-" in ansible_net_model or "C2950" in ansible_net_model or "C2970" in ansible_net_model'
+
+    - name: SET MODEL VARIABLE C2960C
+      set_fact:
+        switch_model: 'c2960c'
+      when: '"C2960C-" in ansible_net_model'
+
+    - name: SET MODEL VARIABLE C2960S
+      set_fact:
+        switch_model: 'c2960s'
+      when: '"C2960S-" in ansible_net_model'
+
+    - name: SET MODEL VARIABLE C2960X
+      set_fact:
+        switch_model: 'c2960x'
+      when: '"C2960X-" in ansible_net_model'
+
+    - name: SET MODEL VARIABLE C3560
+      set_fact:
+        switch_model: 'c3560'
+      when: '"C3560-" in ansible_net_model'
+
+    - name: SET MODEL VARIABLE C3560C
+      set_fact:
+        switch_model: 'c3560c'
+      when: '"C3560C-" in ansible_net_model'
+
+    - name: SET MODEL VARIABLE C3560CG
+      set_fact:
+        switch_model: 'c3560cg'
+      when: '"C3560CG-" in ansible_net_model'
+
+    - name: SET MODEL VARIABLE C3560X
+      set_fact:
+        switch_model: 'c3560x'
+      when: '"C3560X-" in ansible_net_model'
+
+    - name: SET MODEL VARIABLE C3560CX
+      set_fact:
+        switch_model: 'c3560cx'
+        compliant_ios_version: "{{ compliant_ios_version_c3560cx }}"
+      when: '"C3560CX-" in ansible_net_model'
+
+    - name: SET MODEL VARIABLE C3750X
+      set_fact:
+        switch_model: 'c3750x'
+      when: '"C3750X-" in ansible_net_model'
+
+    - name: SET MODEL VARIABLE CAT3K
+      set_fact:
+        switch_model: 'cat3k'
+        cat3k_version: "{{ ansible_net_version | regex_findall('\\b\\d{1,2}\\.\\d{1,3}\\.\\d{1,3}') | first }}"
+        compliant_ios_version: "{{ compliant_ios_version_cat3k }}"
+      when: '"C3650" in ansible_net_model or "C3850" in ansible_net_model'
+
+    - name: SET MODEL FILE VARIABLES
+      set_fact:
+        compliant_ios_file: "{{ vars['compliant_ios_file_' + switch_model] }}"
+        compliant_ios_file_size: "{{ vars['compliant_ios_file_size_' + switch_model] }}"
+        compliant_ios_md5_value: "{{ vars['compliant_ios_md5_value_' + switch_model] }}"
+
+    - name: UPGRADE IOS IMAGE IF NOT COMPLIANT
+      block:
+      - name: CHECK FLASH FOR IOS FILE
+        ios_command:
+          commands:
+            - "dir"
+        register: dir_response
+
+      - name: SET FACT ios_file_exists
+        set_fact:
+          ios_file_exists: "{{true if compliant_ios_file in dir_response.stdout[0] else false}}"
+
+      - debug: msg="FILE EXISTS = {{ios_file_exists}}   FILE VALID = {{ios_file_valid}}"
+
+      - name: GET CAT3K INFO
+        block:
+        - name: CHECK FOR FLASH-2
+          ios_command:
+            commands:
+              - "dir all | inc flash-"
+          register: cat3k_flashes
+
+        - name: CHECK FLASH-2
+          ios_command:
+            commands:
+              - "dir flash-2:"
+          register: dir_flash2_response
+          when: '"flash-2:" in cat3k_flashes.stdout[0]'
+
+        - name: SET FLASH2 VARS
+          block:
+          - set_fact:
+              ios_file_flash2_exists="{{true if (compliant_ios_file in dir_flash2_response.stdout[0] and compliant_ios_file_size in dir_flash2_response.stdout[0]) else false}}"
+              flash2_free_space="{{ dir_flash2_response.stdout[0] | regex_findall('\((\d+) bytes free\)') | first }}"
+
+          - set_fact:
+              free_space_flash2_test="{{ true if (compliant_ios_file_size | int < flash2_free_space | int) else false }}"
+          when: '"flash-2:" in cat3k_flashes.stdout[0]'
+
+        - debug: msg="FLASH2_FREE_SPACE = {{ flash2_free_space }}\nFLASH2_SPACE_TEST = {{ free_space_flash2_test }}"
+          when: '"flash-2:" in cat3k_flashes.stdout[0]'
+        when: '"cat3k" in switch_model'
+
+      - name: MD5 CHECK IF FILE EXISTS
+        block:
+        - name: RUN MD5 CHECK
+          ios_command:
+            commands:
+              - command: "verify /md5 {{ compliant_ios_file }}"
+          vars:
+            ansible_command_timeout: 210
+          register: md5_response
+
+        - name: SET FACT ios_file_valid
+          set_fact:
+            ios_file_valid: "{{true if compliant_ios_md5_value in md5_response.stdout[0] else false}}"
+        when: ios_file_exists
+
+      - debug: msg="FILE EXISTS = {{ios_file_exists}}   FILE VALID = {{ios_file_valid}}"
+
+      - name: RUN THESE STEPS IF EXISTING FILE IS NOT GOOD
+        block:
+        - name: DELETE IOS IMAGE IF FILE IS CORRUPT
+          ios_command:
+            commands:
+              - command: "delete {{compliant_ios_file}}\n\n"
+
+        - name: CHECK FLASH FOR IOS FILE
+          ios_command:
+            commands:
+              - "dir"
+          register: dir_response
+
+        - name: SET FACTS ios_file_exists/ios_file_valid
+          set_fact:
+            ios_file_exists: "{{true if compliant_ios_file in dir_response.stdout[0] else false}}"
+            ios_file_valid: false
+        when: ios_file_exists and not ios_file_valid
+
+      - set_fact:
+          free_space_test: "{{ true if ansible_net_filesystems_info[ansible_net_filesystems[0]].spacefree_kb | int > (compliant_ios_file_size | int)/1024 else false }}"
+
+      - name: IOS FLASH CLEANUP
+        include: ios_clean_flash_child.yml
+        vars:
+          ansible_command_timeout: 60
+        when: 'not ios_file_exists and not free_space_test and switch_model != "cat3k"'
+
+      - name: IOS FLASH CLEANUP IOS-XE SWITCH1
+        include: ios_switch_xe_clean_flash.yml
+        vars:
+          ansible_command_timeout: 60
+        when: 'not ios_file_exists and not free_space_test and "cat3k" in switch_model'
+
+      - name: IOS FLASH CLEANUP IOS-XE SWITCH2
+        include: ios_switch_xe_clean_flash.yml
+        vars:
+          catalyst_file_system: "flash-2:"
+          ansible_command_timeout: 60
+        when: '"cat3k" in switch_model and "flash-2:" in cat3k_flashes.stdout[0] and not ios_file_flash2_exists and not free_space_flash2_test'
+
+      - name: COPY IOS FILE FROM REMOTE FILE SERVER
+        block:
+        - debug: msg='Copying image file {{compliant_ios_file}} to {{inventory_hostname}}...'
+
+        - name: COPY IOS IMAGE - FTP
+          ios_command:
+            commands:
+              - "copy ftp://{{ftp_user}}:{{ftp_password}}@{{ftp_server}}/{{compliant_ios_file}} flash:{{compliant_ios_file}}\n"
+            wait_for: result[0] contains secs
+            retries: 1
+          vars:
+            ansible_command_timeout: 3600
+
+        - name: CHECK FLASH FOR IOS FILE - POST FILE COPY
+          ios_command:
+            commands:
+              - "dir"
+          register: dir_response
+
+        - name: SET FACTS ios_file_exists/ios_file_valid
+          set_fact:
+            ios_file_exists: "{{true if compliant_ios_file in dir_response.stdout[0] else false}}"
+            ios_file_valid: false
+
+        - debug: msg="FILE EXISTS = {{ios_file_exists}} FILE VALID = {{ios_file_valid}}"
+
+        - fail:
+            msg: "File copy to switch {{inventory_hostname}} failed. Quitting..."
+          when: not ios_file_exists
+
+        - name: IOS - MD5 CHECK - POST FILE COPY
+          ios_command:
+            commands:
+              - command: "verify /md5 {{ compliant_ios_file }}"
+            retries: 1
+          vars:
+            ansible_command_timeout: 210
+          register: md5_response
+
+        - name: SET FACT ios_file_valid
+          set_fact:
+            ios_file_valid: "{{true if compliant_ios_md5_value in md5_response.stdout[0] else false}}"
+
+        when: 'not ios_file_exists or not ios_file_valid'
+
+      - debug: msg="FILE EXISTS = {{ios_file_exists}}   FILE VALID = {{ios_file_valid}}"
+
+      - name: COPY IOS-XE FILE TO SWITCH 2-V16+
+        ios_command:
+          commands:
+            - "request platform software package copy switch all file {{ ansible_net_filesystems[0] }}{{ compliant_ios_file }}"
+        when: 'switch_model == "cat3k" and "flash-2:" in cat3k_flashes.stdout[0] and not ios_file_flash2_exists and "16." in ansible_net_version'
+
+      - name: COPY IOS-XE FILE TO SWITCH 2-V03
+        ios_command:
+          commands:
+            - "copy {{ ansible_net_filesystems[0] }}{{ compliant_ios_file }} flash-2:\n"
+        when: 'switch_model == "cat3k" and "flash-2:" in cat3k_flashes.stdout[0] and not ios_file_flash2_exists and "03.0" in ansible_net_version'
+
+      - name: CHECK FLASH-2
+        ios_command:
+          commands:
+            - "dir flash-2:"
+        when: switch_model == "cat3k" and "flash-2:" in cat3k_flashes.stdout[0]
+        register: dir_flash2_response
+
+      - set_fact:
+          ios_file_flash2_exists="{{ true if compliant_ios_file in dir_flash2_response.stdout[0] else false }}"
+        when: switch_model == "cat3k" and "flash-2:" in cat3k_flashes.stdout[0]
+
+      - name: ASSERT THAT THE IOS FILE EXISTS
+        assert:
+          that:
+            - ios_file_exists
+            - ios_file_valid
+
+      - name: ASSERT THAT THE IOS FILE EXISTS-SWITCH 2
+        assert:
+          that:
+            - ios_file_flash2_exists
+        when: switch_model == "cat3k" and "flash-2:" in cat3k_flashes.stdout[0]
+
+      when: ansible_net_version != compliant_ios_version and switch_type != "legacy"

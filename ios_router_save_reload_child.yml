@@ -1,0 +1,66 @@
+---
+
+    - name: SHOW STATUS ITEMS BEFORE REBOOT
+      ios_command:
+        commands:
+          - "sh ip int brief"
+          - "sh cdp neigh det | count Device"
+          - "sh ip bgp neigh | count Established"
+      register: sh_status_before
+
+    - name: DEBUG BEFORE REBOOT
+      debug: msg='{{ sh_status_before.stdout }}'
+
+    - name: RELOAD DEVICE
+      ios_command:
+        commands:
+          - "reload\ny"
+
+    - name: WAIT FOR ROUTER TO RESPOND
+      local_action: wait_for
+      args:
+        host: "{{ inventory_hostname }}"
+        port: 22
+        state: started
+        delay: 15
+        timeout: 600
+
+    - name: WAIT FOR 60 SECONDS TO ESTABLISH NEIGHBORS
+      wait_for:
+        timeout: 60
+      delegate_to: localhost
+
+    - name: WAIT FOR ROUTER TO RESPOND
+      local_action: wait_for
+      args:
+        host: "{{ inventory_hostname }}"
+        port: 22
+        state: started
+        delay: 15
+        timeout: 600
+
+    - name: SHOW STATUS ITEMS AFTER REBOOT
+      ios_command:
+        commands:
+          - "sh ip int brief"
+          - "sh cdp neigh det | count Device"
+          - "sh ip bgp neigh | count Established"
+      register: sh_status_after
+
+    - name: DEBUG AFTER REBOOT
+      debug: msg='{{ sh_status_after.stdout }}'
+
+    - name: SET FACTS POST REBOOT
+      set_fact:
+        test_int_status: "{{ true if sh_status_before.stdout[0] in sh_status_after.stdout[0] else false }}"
+        test_cdp_neigh: "{{ true if sh_status_before.stdout[1] in sh_status_after.stdout[1] else false }}"
+        test_bgp_neigh: "{{ true if sh_status_before.stdout[2] in sh_status_after.stdout[2] else false }}"
+
+    - debug: msg='{{ test_int_status }}/{{ test_cdp_neigh }}/{{ test_bgp_neigh }}'
+
+    - name: ASSERT REBOOT CONDITIONS
+      assert:
+        that:
+          - test_int_status == true
+          - test_cdp_neigh == true
+          - test_bgp_neigh == true

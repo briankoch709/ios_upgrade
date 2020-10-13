@@ -1,0 +1,261 @@
+---
+- name: UPGRADE IOS ROUTER SOFTWARE
+  hosts: all
+  connection: network_cli
+  gather_facts: no
+
+# version 5: 2019-02-04: using modified ios_facts.py module
+# version 6: 2019-02-04: change information in initial debug list
+# version 7: 2019-03-25: added routers 4300/4400/c800/ir800
+# version 8: 2019-05-08: added dynamic variable step
+  vars:
+    ansible_network_os: ios
+    device_model: "not_supported"
+    catalyst_file_system: "flash:"
+    ios_file_exists: false
+    ios_file_valid: false
+    free_space_test: false
+    boot_config_set: false
+    bootbinfiles: ""
+    ios_md5_value: "11111111"
+    compliant_ios_version: 15.7(3)M3
+    compliant_ios_file:
+    compliant_ios_file_size:
+    compliant_ios_md5_value: 'abcdef1234567890'
+    compliant_ios_file_c2900: c2900-universalk9-mz.SPA.157-3.M3.bin
+    compliant_ios_file_size_c2900: "110655660"
+    compliant_ios_md5_value_c2900: "13f82fb6f3c53b89d1280986deeda3a9"
+    compliant_ios_file_c2951: c2951-universalk9-mz.SPA.157-3.M3.bin
+    compliant_ios_file_size_c2951: "115471796"
+    compliant_ios_md5_value_c2951: "f8009e935f7098920a3b6a45e0db9d5d"
+    compliant_ios_version_c1841: 15.1(4)M12a
+    compliant_ios_file_c1841: c1841-advipservicesk9-mz.151-4.M12a.bin
+    compliant_ios_file_size_c1841: "45768408"
+    compliant_ios_md5_value_c1841: "43b0f86a6627b3bb320ed4b3c96ddcb7"
+    compliant_ios_version_c1900: 15.8(3)M0a
+    compliant_ios_file_c1900: c1900-universalk9-mz.SPA.158-3.M0a.bin
+    compliant_ios_file_size_c1900: "86956472"
+    compliant_ios_md5_value_c1900: "d3e138b4a172a91b817c9cf49b79a2e6"
+    compliant_ios_version_c2800: 15.1(4)M12a
+    compliant_ios_file_c2800: c2800nm-adventerprisek9-mz.151-4.M12a.bin
+    compliant_ios_file_size_c2800: "20004864"
+    compliant_ios_md5_value_c2800: "fcdaeb55b292534e97ecc29a394d35aa"
+    compliant_ios_file_c3900e: c3900e-universalk9-mz.SPA.157-3.M3.bin
+    compliant_ios_file_size_c3900e: "115677536"
+    compliant_ios_md5_value_c3900e: "3b34c5db72c9eb4d0595c95cbd89002a"
+#    compliant_ios_version_c800: 15.8(3)M0a
+#    compliant_ios_file_c800: c800-universalk9-mz.SPA.158-3.M0a.bin
+#    compliant_ios_file_size_c800: "97236648"
+#    compliant_ios_md5_value_c800: "efebaf4c4b3a5a37e508a3f2157b8f07"
+    compliant_ios_version_c800: 15.8(3)M2
+    compliant_ios_file_c800: c800-universalk9-mz.SPA.158-3.M2.bin
+    compliant_ios_file_size_c800: "97181664"
+    compliant_ios_md5_value_c800: "afd31296a44eb62f47f99e219121ca2d"
+    compliant_ios_version_ir800: 15.8(3)M0a
+    compliant_ios_file_ir800: ir800-universalk9-mz.SPA.158-3.M0a
+    compliant_ios_file_size_ir800: "64490930"
+    compliant_ios_md5_value_ir800: "ea14043780227e182baf5f2709ad141f"
+    compliant_ios_version_isr4300: 16.06.05
+    compliant_ios_file_isr4300: isr4300-universalk9.16.06.05.SPA.bin
+    compliant_ios_file_size_isr4300: 550218614
+    compliant_ios_md5_value_isr4300: c9c564ec1c39207b065599fe4087884b
+    compliant_ios_version_isr4400: 16.06.05
+    compliant_ios_file_isr4400: isr4400-universalk9.16.06.05.SPA.bin
+    compliant_ios_file_size_isr4400: 551425537
+    compliant_ios_md5_value_isr4400: ae17a7fafa089d175ac8f5a4b4ec9907
+
+  tasks:
+    - name: GATHER IOS FACTS
+      ios_facts:
+        gather_subset:
+          - "!default"
+          - hardware
+
+    - name: SET MODEL VARIABLE C2900 SERIES
+      set_fact:
+        device_model: 'c2900'
+      when: '"c2900" in ansible_net_image'
+
+    - name: SET MODEL VARIABLE C2951 SERIES
+      set_fact:
+        device_model: 'c2951'
+      when: '"c2951" in ansible_net_image'
+
+    - name: SET MODEL VARIABLE C3900e SERIES
+      set_fact:
+        device_model: 'c3900e'
+      when: '"c3900e" in ansible_net_image'
+
+    - name: SET MODEL VARIABLE C1841
+      set_fact:
+        device_model: 'c1841'
+        compliant_ios_version: 15.1(4)M12a
+      when: '"c1841" in ansible_net_image'
+
+    - name: SET MODEL VARIABLE C1900
+      set_fact:
+        device_model: 'c1900'
+        compliant_ios_version: 15.8(3)M0a
+      when: '"c1900" in ansible_net_image'
+
+    - name: SET MODEL VARIABLE C2800
+      set_fact:
+        device_model: 'c2800'
+        compliant_ios_version: 15.1(4)M12a
+      when: '"c2800nm" in ansible_net_image'
+
+    - name: SET MODEL VARIABLE C899
+      set_fact:
+        device_model: 'c800'
+        compliant_ios_version: 15.8(3)M2
+      when: '"c800" in ansible_net_image'
+
+    - name: SET MODEL VARIABLE IR829
+      set_fact:
+        device_model: 'ir800'
+        compliant_ios_version: 15.8(3)M0a
+      when: '"ir800" in ansible_net_image'
+
+    - name: SET MODEL VARIABLE ISR4300
+      set_fact:
+        device_model: 'isr4300'
+        compliant_ios_version: 16.06.05
+      when: '"isr4300" in ansible_net_image'
+
+    - name: SET MODEL VARIABLE ISR4400
+      set_fact:
+        device_model: 'isr4400'
+        compliant_ios_version: 16.06.05
+      when: '"isr4400" in ansible_net_image'
+
+    - name: SET MODEL FILE VARIABLES
+      set_fact:
+        compliant_ios_file: "{{ vars['compliant_ios_file_' + device_model] }}"
+        compliant_ios_file_size: "{{ vars['compliant_ios_file_size_' + device_model] }}"
+        compliant_ios_md5_value: "{{ vars['compliant_ios_md5_value_' + device_model] }}"
+
+    - name: UPGRADE IOS IMAGE IF NOT COMPLIANT
+      block:
+      - debug: msg='COMPLIANT IOS VERSION is {{compliant_ios_version}}\nCOMPLIANT IOS IMAGE is {{compliant_ios_file}}\nRUNNING IOS IMAGE is {{ansible_net_image}}.\n!!! UPGRADE REQUIRED !!!'
+
+      - name: CHECK FLASH FOR IOS FILE
+        ios_command:
+          commands:
+            - "dir | inc {{ device_model }}"
+        register: dir_response
+
+      - debug: msg='{{dir_response.stdout}}'
+
+      - name: SET FACT ios_file_exists
+        set_fact:
+          ios_file_exists: "{{true if compliant_ios_file in dir_response.stdout[0] else false}}"
+
+      - debug: msg="FILE EXISTS = {{ios_file_exists}}   FILE VALID = {{ios_file_valid}}"
+
+      - name: MD5 CHECK IF FILE EXISTS
+        block:
+        - name: RUN MD5 CHECK
+          ios_command:
+            commands:
+              - command: "verify /md5 {{ compliant_ios_file }}"
+            retries: 1
+          vars:
+            ansible_command_timeout: 120
+          register: md5_response
+
+        - name: SET FACT ios_file_valid
+          set_fact:
+            ios_file_valid: "{{true if compliant_ios_md5_value in md5_response.stdout[0] else false}}"
+
+        when: ios_file_exists
+
+#      - meta: end_play
+
+      - debug: msg="FILE EXISTS = {{ios_file_exists}}   FILE VALID = {{ios_file_valid}}"
+
+      - name: RUN THESE STEPS IF EXISTING FILE IS NOT GOOD
+        block:
+        - name: DELETE IOS IMAGE IF FILE IS CORRUPT
+          ios_command:
+            commands:
+              - command: "delete {{compliant_ios_file}}\n\n"
+
+        - name: CHECK FLASH FOR IOS FILE
+          ios_command:
+            commands:
+              - "dir | inc bin"
+          register: dir_response
+
+        - name: SET FACTS ios_file_exists/ios_file_valid
+          set_fact:
+            ios_file_exists: "{{true if compliant_ios_file in dir_response.stdout[0] else false}}"
+            ios_file_valid: false
+        when: ios_file_exists and not ios_file_valid
+
+      - set_fact:
+          free_space_test: "{{true if (ansible_net_filesystems_info[ansible_net_filesystems[0]].spacefree_kb | int > (compliant_ios_file_size | int)/1024) else false}}"
+
+      - debug: msg="FREE SPACE TEST {{free_space_test}}"
+
+      - name: DELETE OBSOLETE FILES-DIRECTORIES
+        include: ios_clean_flash_child.yml
+        vars:
+          ansible_command_timeout: 120
+        when: not ios_file_exists and not free_space_test
+
+      - name: COPY IOS FILE FROM REMOTE FILE SERVER
+        block:
+        - debug: msg='Copying image file {{compliant_ios_file}} to {{inventory_hostname}}...'
+
+#        - name: COPY OVER IOS IMAGE - SCP
+#            command: "scp {{compliant_ios_file}} {{inventory_hostname}}:/{{compliant_ios_file}}"
+#          when: ios_file_exists == "false"
+
+        - name: COPY IOS IMAGE - FTP
+          ios_command:
+            commands:
+              - "copy ftp://{{ftp_user}}:{{ftp_password}}@{{ftp_server}}/{{compliant_ios_file}} {{ansible_net_filesystems[0]}}\n"
+            retries: 1
+          vars:
+            ansible_command_timeout: 3600
+
+        - name: CHECK FLASH FOR IOS FILE - POST FILE COPY
+          ios_command:
+            commands:
+              - "dir"
+          register: dir_response
+
+        - name: SET FACTS ios_file_exists/ios_file_valid
+          set_fact:
+            ios_file_exists: "{{true if compliant_ios_file in dir_response.stdout[0] else false}}"
+            ios_file_valid: false
+
+        - debug: msg="FILE EXISTS = {{ios_file_exists}} FILE VALID = {{ios_file_valid}}"
+
+        - fail:
+            msg: "File copy to switch {{inventory_hostname}} failed. Quitting..."
+          when: not ios_file_exists
+
+        - name: IOS - MD5 CHECK - POST FILE COPY
+          ios_command:
+            commands:
+              - command: "verify /md5 {{ compliant_ios_file }}"
+            retries: 1
+          vars:
+            ansible_command_timeout: 120
+          register: md5_response
+
+        - name: SET FACT ios_file_valid
+          set_fact:
+            ios_file_valid: "{{true if compliant_ios_md5_value in md5_response.stdout[0] else false}}"
+
+        when: 'not ios_file_exists or not ios_file_valid'
+
+      - debug: msg="FILE EXISTS = {{ios_file_exists}}   FILE VALID = {{ios_file_valid}}"
+
+      - name: ARCHIVE ORIGINAL CONFIG
+        ios_command:
+          commands:
+            - "copy run ansible_backup_running.cfg\n\n"
+
+      when: ansible_net_version != compliant_ios_version and device_model != "not_supported"

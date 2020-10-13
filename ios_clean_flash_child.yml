@@ -1,0 +1,52 @@
+---
+
+# 2019-02-12: get list of all c*.bin files; delete all non-essential bin files
+# 2019-03-07: dont delete crashinfo and profile directories, delete IOS tar files
+
+    - name: PARSE SW VERSION
+      set_fact:
+        cat3k_version="{{ ansible_net_version | regex_findall('\\b\\d{1,2}\\.\\d{1,3}\\.\\d{1,3}') }}"
+
+    - name: CHECK FLASH FOR IOS FILE/DIRECTORIES/TAR
+      ios_command:
+        commands:
+          - "dir {{ catalyst_file_system }} | inc bin"
+          - "dir | inc drwx"
+          - "dir | inc .tar"
+      register: dir_response
+
+    - debug: msg='{{ dir_response.stdout }}'
+
+    - set_fact:
+        binfiles="{{ dir_response.stdout[0] | regex_findall('\\b(?=(c.*\.bin))\\b') }}"
+        dirfiles="{{ dir_response.stdout[1] | regex_findall('\\b(?=(c.*))\\b') }}"
+        tarfiles="{{ dir_response.stdout[2] | regex_findall('\\b(?=(c.*\.tar))\\b') }}"
+    
+    - name: DELETE OBSOLETE FILES
+      ios_command:
+        commands:
+          - "delete {{ catalyst_file_system }}{{ item }}\n\n"
+      with_items: "{{ binfiles }}"
+      when: 'item not in compliant_ios_file and item not in ansible_net_image'
+
+    - name: DELETE OBSOLETE DIRECTORIES
+      ios_command:
+        commands:
+          - "delete /force /recursive {{ catalyst_file_system }}{{ item }}\n\n"
+      with_items: "{{ dirfiles }}"
+      when: 'item not in compliant_ios_file and item not in ansible_net_image and "crashinfo" not in item and "profile" not in item and switch_model != "cat3k"'
+
+    - name: DELETE OBSOLETE TAR FILES
+      ios_command:
+        commands:
+          - "delete /force /recursive {{ catalyst_file_system }}{{ item }}\n\n"
+      with_items: "{{ tarfiles }}"
+      when: 'switch_model != "cat3k"'
+
+    - name: GATHER IOS SWITCH FACTS
+      ios_facts:
+        gather_subset: hardware
+
+    - set_fact:
+        free_space_test: "{{ true if compliant_ios_file_size | int < (ansible_net_filesystems_info[ansible_net_filesystems[0]].spacefree_kb | int)*1024 else false }}"
+      failed_when: not free_space_test

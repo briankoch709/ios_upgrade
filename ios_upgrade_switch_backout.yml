@@ -1,0 +1,231 @@
+---
+- name: IOS BACKOUT SWITCH TO OLD IOS VERSION
+  hosts: all
+  connection: network_cli
+  gather_facts: no
+
+# 2019-05-13: added missing IOS version check after reboot
+
+  vars:
+    ansible_network_os: ios
+    device_model:
+    catalyst_file_system: "flash:"
+    reboot_timeout: "600"
+    ios_file_exists: false
+    ios_file_valid: false
+    ios_md5_value: "11111111"
+    test_cdp_neigh: false
+    test_int_status: false
+    test_bgp_neigh: false
+    switch_type: "modern"
+    compliant_ios_version: 15.2(2)E8
+    compliant_ios_file:
+    compliant_ios_file_size:
+    compliant_ios_md5_value: 'abcdef1234567890'
+    compliant_ios_file_c2960s: c2960s-universalk9-mz.152-2.E8.bin
+    compliant_ios_file_size_c2960s: "16967680"
+    compliant_ios_md5_value_c2960s: '262e5da4a7440cc37b2e1d0cc2bad7d5'
+    compliant_ios_file_c2960x: c2960x-universalk9-mz.152-2.E8.bin
+    compliant_ios_file_size_c2960x: "21287936"
+    compliant_ios_md5_value_c2960x: a285f7e7293a68d4bd44ea94d1152e50
+    compliant_ios_file_c2960c: c2960c405-universalk9-mz.152-2.E8.bin
+    compliant_ios_file_size_c2960c: "16677888"
+    compliant_ios_md5_value_c2960c: "5c972c1dfdd6a57473dd7acb0a8ad1d1"
+    compliant_ios_file_c3560c: c3560c405-universalk9-mz.152-2.E8.bin
+    compliant_ios_file_size_c3560c: "20004864"
+    compliant_ios_md5_value_c3560c: "e2dd3fe475296a44fc64addc46c18bd1"
+    compliant_ios_file_c3560cg: c3560c405ex-universalk9-mz.152-2.E8.bin
+    compliant_ios_file_size_c3560cg: "20628480"
+    compliant_ios_md5_value_c3560cg: "86ee03dfeb501c088c96d5675b96dcb9"
+    compliant_ios_file_c3560x: c3560e-universalk9-mz.152-2.E8.bin
+    compliant_ios_file_size_c3560x: "24385536"
+    compliant_ios_md5_value_c3560x: "39f17940a583b5a250aafd5e6aeee999"
+    compliant_ios_version_c3560cx: 15.2(6)E2
+    compliant_ios_file_c3560cx: c3560cx-universalk9-mz.152-6.E2.bin
+    compliant_ios_file_size_c3560cx: "22798336"
+    compliant_ios_md5_value_c3560cx: "340064c2c0667350ec6358bea422f133"
+    compliant_ios_file_c3750x: c3750e-universalk9-mz.152-2.E8.bin
+    compliant_ios_file_size_c3750x: "24470528"
+    compliant_ios_md5_value_c3750x: "1d69f0b4f3e2e273afb50d5f213bceb2"
+    compliant_ios_version_cat3k: 16.03.08
+    compliant_ios_file_cat3k: cat3k_caa-universalk9.16.03.08.SPA.bin
+    compliant_ios_file_size_cat3k: "535578976"
+    compliant_ios_md5_value_cat3k: "c98d0b937945f30b3cd8f58702461b6f"
+
+  tasks:
+    - name: GATHER IOS SWITCH FACTS
+      ios_facts:
+        gather_subset: hardware
+
+    - name: SET MODEL VARIABLE LEGACY
+      set_fact:
+        switch_type: "legacy"
+      when: '"C2960-" in ansible_net_model or "C2950" in ansible_net_model or "C2970" in ansible_net_model'
+
+    - name: SET MODEL VARIABLE C2960C
+      set_fact:
+        switch_model: 'c2960c'
+      when: '"C2960C-" in ansible_net_model'
+
+    - name: SET MODEL VARIABLE C2960S
+      set_fact:
+        switch_model: 'c2960s'
+      when: '"C2960S-" in ansible_net_model'
+
+    - name: SET MODEL VARIABLE C2960X
+      set_fact:
+        switch_model: 'c2960x'
+      when: '"C2960X-" in ansible_net_model'
+
+    - name: SET MODEL VARIABLE C3560
+      set_fact:
+        switch_model: 'c3560'
+      when: '"C3560-" in ansible_net_model'
+
+    - name: SET MODEL VARIABLE C3560C
+      set_fact:
+        switch_model: 'c3560c'
+      when: '"C3560C-" in ansible_net_model'
+
+    - name: SET MODEL VARIABLE C3560CG
+      set_fact:
+        switch_model: 'c3560cg'
+      when: '"C3560CG-" in ansible_net_model'
+
+    - name: SET MODEL VARIABLE C3560X
+      set_fact:
+        switch_model: 'c3560x'
+      when: '"C3560X-" in ansible_net_model'
+
+    - name: SET MODEL VARIABLE C3560CX
+      set_fact:
+        switch_model: 'c3560cx'
+        compliant_ios_version: "{{ compliant_ios_version_c3560cx }}"
+      when: '"C3560CX-" in ansible_net_model'
+
+    - name: SET MODEL VARIABLE C3750X
+      set_fact:
+        switch_model: 'c3750x'
+      when: '"C3750X-" in ansible_net_model'
+
+    - name: SET MODEL VARIABLE CAT3K
+      set_fact:
+        switch_model: 'cat3k'
+      when: '"C3650" in ansible_net_model or "C3850" in ansible_net_model'
+
+    - name: SET MODEL FILE VARIABLES
+      set_fact:
+        compliant_ios_file: "{{ vars['compliant_ios_file_' + switch_model] }}"
+
+    - name: PERFORM BACKOUT IF PLATFORM NOT LEGACY AND VERSION IS UPGRADE VERSION
+      block:
+      - debug: msg="RUNNING IOS VERSION - {{ ansible_net_version }}"
+
+      - name: CHECK FLASH FOR BIN FILES
+        ios_command:
+          commands:
+            - "dir | inc bin"
+        register: dir_response
+
+      - set_fact:
+          binfiles="{{ dir_response.stdout[0] | regex_findall('\\b(?=(c.*\.bin))\\b') }}"
+
+      - name: SET CONFIG BACK TO OLD FILE
+        ios_config:
+          lines:
+            - "no boot system"
+            - "boot system {{ catalyst_file_system }}{{ item }}\n\n"
+        with_items: "{{ binfiles }}"
+        when: 'item not in compliant_ios_file'
+
+      - name: SAVE NEW CONFIG
+        ios_command:
+          commands:
+            - "copy run start\n\n"
+
+      - name: SHOW STATUS ITEMS BEFORE REBOOT
+        ios_command:
+          commands:
+            - "sh int status  \n"
+            - "sh cdp neigh det | inc Device"
+        register: sh_status_before
+
+      - name: SHOW STATUS ITEMS BEFORE REBOOT-CAT3K
+        ios_command:
+          commands:
+            - "sh switch | count Ready"
+        register: sh_status_cat3k_before
+        when: device_model == "cat3k"
+
+      - name: RELOAD DEVICE
+        ios_command:
+          commands:
+            - "reload\ny\n"
+
+      - debug: msg="NOTE!! UPGRADE OF 3560X/3750X/CAT3K SWITCHES MAY RESULT IN FPGA UPGRADE!!\nTHIS WILL DELAY BOOT PROCESS ~30 MINUTES!!"
+        when: '"-X" in ansible_net_model or "cat3k" in ansible_net_image'
+
+      - name: WAIT FOR SWITCH TO RESPOND
+        local_action: wait_for
+        args:
+          host: "{{ inventory_hostname }}"
+          port: 22
+          state: started
+          delay: 15
+          timeout: "{{ reboot_timeout }}"
+
+      - name: WAIT FOR 3 MINS FOR SWITCH-2 TO UPGRADE
+        wait_for:
+          timeout: 180
+        delegate_to: localhost
+        when: device_model == "cat3k" and "flash-" in dirall_response.stdout[0]
+
+      - name: WAIT FOR 45 SECONDS TO ESTABLISH NEIGHBORS
+        wait_for:
+          timeout: 45
+        delegate_to: localhost
+
+      - name: GATHER IOS SWITCH FACTS
+        ios_facts:
+          gather_subset: hardware
+
+      - debug: msg="RUNNING IOS VERSION - {{ ansible_net_version }}"
+
+      - name: SHOW STATUS ITEMS AFTER REBOOT
+        ios_command:
+          commands:
+            - "sh int status  \n"
+            - "sh cdp neigh det | inc Device"
+        register: sh_status_after
+
+      - name: SHOW STATUS ITEMS AFTER REBOOT-CAT3K
+        ios_command:
+          commands:
+            - "sh switch | count Ready"
+        register: sh_status_cat3k_after
+        when: device_model == "cat3k"
+
+      - name: SET FACT ios_file_exists
+        block:
+        - set_fact:
+            test_int_status: "{{true if sh_status_before.stdout[0] in sh_status_after.stdout[0] else false}}"
+            test_cdp_neigh: "{{true if sh_status_before.stdout[1] in sh_status_after.stdout[1] else false}}"
+
+        - set_fact:
+            test_switches: "{{true if sh_status_cat3k_before.stdout[0] in sh_status_cat3k_after.stdout[0] else false}}"
+          when: device_model == "cat3k"
+
+      - name: ASSERT REBOOT CONDITIONS
+        block:
+        - assert:
+            that:
+              - test_int_status == true
+              - test_cdp_neigh == true
+              - ansible_net_version != compliant_ios_version
+
+        - assert:
+            that:
+            - test_switches == true
+          when: device_model == "cat3k"
+
+      when: 'ansible_net_version == compliant_ios_version and switch_type != "legacy"'

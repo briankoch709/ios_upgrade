@@ -1,0 +1,66 @@
+---
+
+# 2019-04-16: initial version
+# 2019-05-14: fixed pkgfile deletion
+
+    - name: CHECK FLASH FOR IOS FILE/DIRECTORIES/TAR
+      ios_command:
+        commands:
+          - "dir {{ catalyst_file_system }} | inc bin"
+          - "dir {{ catalyst_file_system }} | inc SPA.pkg"
+          - "dir {{ catalyst_file_system }} | inc SPA.conf"
+      register: dir_response
+
+    - debug: msg='{{ dir_response.stdout }}'
+    - debug: msg='{{ cat3k_version }}'
+
+    - set_fact:
+        binfiles="{{ dir_response.stdout[0] | regex_findall('\\b(?=(c.*\.bin))\\b') }}"
+        pkgfiles="{{ dir_response.stdout[1] | regex_findall('\\b(?=(cat3k.*\SPA.pkg))\\b') }}"
+        conffiles="{{ dir_response.stdout[2] | regex_findall('\\b(?=(cat3k.*\SPA.conf))\\b') }}"
+
+    - name: DELETE BIN FILES
+      ios_command:
+        commands:
+          - "delete {{ catalyst_file_system }}{{ item }}\n\n"
+      with_items: "{{ binfiles }}"
+      when: 'item not in compliant_ios_file and item not in ansible_net_image'
+
+#    - name: DELETE OBSOLETE PKG FILES-DEBUG
+#      debug: msg='DELETE PKG FILE {{ item }} --> TRUE'
+#      with_items: "{{ pkgfiles }}"
+#      when: item.find(cat3k_version) == -1
+
+    - name: DELETE OBSOLETE PKG FILES
+      ios_command:
+        commands:
+          - "delete {{ catalyst_file_system }}{{ item }}\n\n"
+      with_items: "{{ pkgfiles }}"
+      when: item.find(cat3k_version) == -1
+
+    - name: DELETE CONF FILES
+      ios_command:
+        commands:
+          - "delete {{ catalyst_file_system }}{{ item }}\n\n"
+      with_items: "{{ conffiles }}"
+      when: 'cat3k_version not in conffiles'
+
+    - name: CHECK CAT3K FLASH-2
+      block:
+      - name: CHECK FLASH-2
+        ios_command:
+          commands:
+            - "dir flash-2:"
+        register: dir_flash2_response
+        when: '"flash-2:" in cat3k_flashes.stdout[0]'
+
+      - name: SET FLASH2 VARS
+        set_fact:
+          ios_file_flash2_exists: "{{ true if compliant_ios_file in dir_flash2_response.stdout[0] else false }}"
+          flash2_free_space: "{{ dir_flash2_response.stdout[0] | regex_findall('\\((\\d+) bytes free\\)') | first }}"
+        when: '"flash-2:" in cat3k_flashes.stdout[0]'
+
+      - name: SET FLASH2 VARS
+        set_fact:
+          free_space_flash2_test: "{{ true if (compliant_ios_file_size | int) < (flash2_free_space | int) else false }}"
+        when: '"flash-2:" in cat3k_flashes.stdout[0]'

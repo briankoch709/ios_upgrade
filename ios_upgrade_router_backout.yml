@@ -1,0 +1,194 @@
+---
+- name: IOS ROUTER BACKOUT TO OLD IOS VERSION
+  hosts: all
+  connection: network_cli
+  gather_facts: no
+
+# version 1: 2019-03-01: original
+# version 2: 2019-05-08: added flexible model variable step
+# version 3: 2019-05-13: fixed set boot config and reboot
+
+  vars:
+    ansible_network_os: ios
+    device_model:
+    router_primary: false
+    ios_file_exists: false
+    ios_file_valid: false
+    boot_config_set: false
+    test_cdp_neigh: false
+    test_int_status: false
+    test_bgp_neigh: false
+    bootbinfiles: ""
+    ios_md5_value: "11111111"
+    ansible_command_timeout: 300
+    compliant_ios_version: 15.7(3)M3
+    compliant_ios_file:
+    compliant_ios_file_size:
+    compliant_ios_md5_value: 'abcdef1234567890'
+    compliant_ios_file_c2900: c2900-universalk9-mz.SPA.157-3.M3.bin
+    compliant_ios_file_size_c2900: "110655660"
+    compliant_ios_md5_value_c2900: "13f82fb6f3c53b89d1280986deeda3a9"
+    compliant_ios_file_c2951: c2951-universalk9-mz.SPA.157-3.M3.bin
+    compliant_ios_file_size_c2951: "115471796"
+    compliant_ios_md5_value_c2951: "f8009e935f7098920a3b6a45e0db9d5d"
+    compliant_ios_file_c1841: c1841-advipservicesk9-mz.151-4.M12a.bin
+    compliant_ios_file_size_c1841: "45768408"
+    compliant_ios_md5_value_c1841: "43b0f86a6627b3bb320ed4b3c96ddcb7"
+    compliant_ios_file_c1900: c1900-universalk9-mz.SPA.158-3.M0a.bin
+    compliant_ios_file_size_c1900: "86956472"
+    compliant_ios_md5_value_c1900: "d3e138b4a172a91b817c9cf49b79a2e6"
+    compliant_ios_file_c2800: c2800nm-adventerprisek9-mz.151-4.M12a.bin
+    compliant_ios_file_size_c2800: "20004864"
+    compliant_ios_md5_value_c2800: "fcdaeb55b292534e97ecc29a394d35aa"
+    compliant_ios_file_c3900e: c3900e-universalk9-mz.SPA.157-3.M3.bin
+    compliant_ios_file_size_c3900e: "115677536"
+    compliant_ios_md5_value_c3900e: "3b34c5db72c9eb4d0595c95cbd89002a"
+    compliant_ios_version_c800: 15.8(3)M0a
+    compliant_ios_file_c800: c800-universalk9-mz.SPA.158-3.M0a.bin
+    compliant_ios_file_size_c800: "97236648"
+    compliant_ios_md5_value_c800: "efebaf4c4b3a5a37e508a3f2157b8f07"
+    compliant_ios_version_ir800: 15.8(3)M0a
+    compliant_ios_file_ir800: ir800-universalk9-mz.SPA.158-3.M0a
+    compliant_ios_file_size_ir800: "64490930"
+    compliant_ios_md5_value_ir800: "ea14043780227e182baf5f2709ad141f"
+    compliant_ios_version_isr4300: 16.06.05
+    compliant_ios_file_isr4300: isr4300-universalk9.16.06.05.SPA.bin
+    compliant_ios_file_size_isr4300: 550218614
+    compliant_ios_md5_value_isr4300: c9c564ec1c39207b065599fe4087884b
+    compliant_ios_version_isr4400: 16.06.05
+    compliant_ios_file_isr4400: isr4400-universalk9.16.06.05.SPA.bin
+    compliant_ios_file_size_isr4400: 551425537
+    compliant_ios_md5_value_isr4400: ae17a7fafa089d175ac8f5a4b4ec9907
+
+  tasks:
+    - name: GATHER IOS FACTS
+      ios_facts:
+        gather_subset:
+          - "!default"
+          - hardware
+
+    - name: SET MODEL VARIABLE C2900 SERIES
+      set_fact:
+        device_model: 'c2900'
+      when: '"c2900" in ansible_net_image'
+
+    - name: SET MODEL VARIABLE C2951 SERIES
+      set_fact:
+        device_model: 'c2951'
+      when: '"c2951" in ansible_net_image'
+
+    - name: SET MODEL VARIABLE C1841
+      set_fact:
+        device_model: 'c1841'
+        compliant_ios_version: 15.1(4)M12a
+      when: '"c1841" in ansible_net_image'
+
+    - name: SET MODEL VARIABLE C1900
+      set_fact:
+        device_model: 'c1900'
+        compliant_ios_version: 15.8(3)M0a
+      when: '"c1900" in ansible_net_image'
+
+    - name: SET MODEL VARIABLE C2800
+      set_fact:
+        device_model: 'c2800'
+        compliant_ios_version: 15.1(4)M12a
+      when: '"c2800nm" in ansible_net_image'
+
+    - name: SET MODEL VARIABLE C3900e SERIES
+      set_fact:
+        device_model: 'c3900e'
+      when: '"c3900e" in ansible_net_image'
+
+    - name: SET MODEL VARIABLE C899
+      set_fact:
+        device_model: 'c800'
+        compliant_ios_version: 15.8(3)M0a
+      when: '"c800" in ansible_net_image'
+
+    - name: SET MODEL VARIABLE IR829
+      set_fact:
+        device_model: 'ir800'
+        compliant_ios_version: 15.8(3)M0a
+      when: '"ir800" in ansible_net_image'
+
+    - name: SET MODEL VARIABLE ISR4300
+      set_fact:
+        device_model: 'isr4300'
+        compliant_ios_version: 16.06.05
+      when: '"isr4300" in ansible_net_image'
+
+    - name: SET MODEL VARIABLE ISR4400
+      set_fact:
+        device_model: 'isr4400'
+        compliant_ios_version: 16.06.05
+      when: '"isr4400" in ansible_net_image'
+
+    - name: SET MODEL FILE VARIABLES
+      set_fact:
+        compliant_ios_file: "{{ vars['compliant_ios_file_' + device_model] }}"
+        compliant_ios_file_size: "{{ vars['compliant_ios_file_size_' + device_model] }}"
+        compliant_ios_md5_value: "{{ vars['compliant_ios_md5_value_' + device_model] }}"
+
+    - name: PERFORM BACKOUT IF PLATFORM NOT LEGACY AND VERSION IS UPGRADE VERSION
+      block:
+      - debug: msg="RUNNING IOS VERSION - {{ ansible_net_version }}"
+
+      - name: SET CONFIG BACK TO OLD FILE
+        ios_config:
+          lines:
+            - "no boot system {{ ansible_net_image }}"
+
+      - name: SAVE NEW CONFIG
+        ios_command:
+          commands:
+            - "copy run start\n\n"
+
+      - name: FIND PRIMARY ROUTER STATUS
+        ios_command:
+          commands:
+            - "sh ip route | inc 0.0.0.0/0"
+        register: sh_bgp_routing
+
+      - name: SET ROUTER STATUS
+        set_fact:
+          router_primary: "{{ true if 'B*' in sh_bgp_routing.stdout[0] else false }}"
+
+      - debug: msg='{{ ansible_net_hostname }} --> {{ router_primary }}'
+
+      - name: CHECK BGP NEIGH BEFORE REBOOT
+        ios_command:
+          commands:
+            - "sh bgp neigh | count Established"
+        register: sh_bgp_before
+        when: router_primary
+
+      - name: REBOOT ROUTER STANDBY
+        include: ios_router_save_reload_child.yml
+        when: not router_primary
+
+      - name: CHECK BGP NEIGH AFTER REBOOT
+        ios_command:
+          commands:
+            - "sh bgp neigh | count Established"
+        register: sh_bgp_after
+        when: router_primary
+
+      - name: REBOOT ROUTER PRIMARY
+        include: ios_router_save_reload_child.yml
+        when: router_primary and ('sh_bgp_after.stdout[0] in sh_bgp_before.stdout[0]')
+
+      - name: GATHER IOS FACTS
+        ios_facts:
+          gather_subset:
+            - "!default"
+            - hardware
+
+      - debug: msg="RUNNING IOS VERSION - {{ ansible_net_version }}"
+
+      - name: ASSERT THAT THE IOS VERSION IS OLD VERSION
+        assert:
+          that:
+            - compliant_ios_version != ansible_net_version
+
+      when: 'ansible_net_version == compliant_ios_version'

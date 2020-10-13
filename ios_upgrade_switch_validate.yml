@@ -1,0 +1,97 @@
+---
+- name: IOS SWITCH POST REBOOT VERSION CHECK
+  hosts: all
+  connection: network_cli
+  gather_facts: no
+
+  vars:
+    ansible_network_os: ios
+    compliant_ios_version: 15.2(2)E8
+    switch_type: "non-legacy"
+
+  tasks:
+    - name: WAIT FOR SWITCH TO RESPOND
+      local_action: wait_for
+      args:
+        host: "{{ inventory_hostname }}"
+        port: 22
+        state: started
+        delay: 15
+        timeout: 600
+
+    - name: GATHER IOS SWITCH FACTS
+      ios_facts:
+        gather_subset:
+          - hardware
+
+    - name: SET MODEL VARIABLE C2960
+      set_fact:
+        switch_type: "legacy"
+      when: '"C2960-" in ansible_net_model or "C2950" in ansible_net_model or "C2970" in ansible_net_model'
+
+    - name: SET MODEL VARIABLE C2960X
+      set_fact:
+        switch_model: 'c2960x'
+      when: '"C2960X-" in ansible_net_model'
+
+    - name: SET MODEL VARIABLE C2960S
+      set_fact:
+        switch_model: 'c2960s'
+      when: '"C2960S-" in ansible_net_model'
+
+    - name: SET MODEL VARIABLE C2960C
+      set_fact:
+        switch_model: 'c2960c'
+      when: '"C2960C-" in ansible_net_model'
+
+    - name: SET MODEL VARIABLE C3560
+      set_fact:
+        switch_model: 'c3560'
+      when: '"C3560-" in ansible_net_model'
+
+    - name: SET MODEL VARIABLE C3560C
+      set_fact:
+        switch_model: 'c3560c'
+      when: '"C3560C-" in ansible_net_model'
+
+    - name: SET MODEL VARIABLE C3560CG
+      set_fact:
+        switch_model: 'c3560cg'
+      when: '"C3560CG-" in ansible_net_model'
+
+    - name: SET MODEL VARIABLE C3560CX
+      set_fact:
+        switch_model: 'c3560cx'
+        compliant_ios_version: 15.2(6)E2
+      when: '"C3560CX-" in ansible_net_model'
+
+    - name: SET MODEL VARIABLE C3560X
+      set_fact:
+        switch_model: 'c3560x'
+      when: '"C3560X-" in ansible_net_model'
+
+    - name: SET MODEL VARIABLE C3560CX
+      set_fact:
+        switch_model: 'c3560cx'
+      when: '"C3560CX-" in ansible_net_model'
+
+    - name: SET MODEL VARIABLE C3750X
+      set_fact:
+        switch_model: 'c3750x'
+      when: '"C3750X-" in ansible_net_model'
+
+    - name: SET MODEL VARIABLE CAT3K
+      set_fact:
+        switch_model: 'cat3k'
+        compliant_ios_version: 16.3.8
+      when: '"C3650" in ansible_net_model or "C3850" in ansible_net_model'
+
+    - name: VALIDATE RUNNING IOS VERSION
+      block:
+      - debug: msg="COMPLIANT IOS VERSION {{ compliant_ios_version }}\nRUNNING IOS VERSION {{ ansible_net_version }}"
+
+      - name: ASSERT THAT THE IOS VERSION IS CORRECT
+        assert:
+          that:
+            - compliant_ios_version == ansible_net_version
+      when: switch_type != "legacy"
